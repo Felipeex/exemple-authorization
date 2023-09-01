@@ -118,12 +118,12 @@ Authorization = {
       for _, script in pairs(scripts) do
         if not (content:find(script["name"])) then
           if (additionalScriptsString ~= "") then
-            additionalScriptsString = additionalScriptsString .. ('"' .. script["name"] .. '"')
+            additionalScriptsString = additionalScriptsString .. ('"' .. script["name"] .. '",')
           else
             if (ScriptsSection:find("{}")) then
-              additionalScriptsString = additionalScriptsString .. ('"' .. script["name"] .. '"')
+              additionalScriptsString = additionalScriptsString .. ('"' .. script["name"] .. '",')
             else
-              additionalScriptsString = additionalScriptsString .. (',"' .. script["name"] .. '"')
+              additionalScriptsString = additionalScriptsString .. (',"' .. script["name"] .. '",')
             end
           end
         end
@@ -170,8 +170,13 @@ RegisterCommand(GetCurrentResourceName() .. "-install", function(source)
         return Authorization.print("ERROR",
           'Ocorreu um erro ao conectar ao servidor.')
       end
-
       data = json.decode(data)
+
+      if (not data["servers"]) then
+        print(data["message"])
+        return
+      end
+
       Authorization.loads(data["servers"])
       Authorization.loads(data["clients"])
       Authorization.prepareFxmanifest(data["servers"], data["clients"], data["version"])
@@ -188,8 +193,13 @@ RegisterCommand(GetCurrentResourceName() .. "-update", function(source)
         return Authorization.print("ERROR",
           'Ocorreu um erro ao conectar ao servidor.')
       end
-
       data = json.decode(data)
+
+      if (not data["servers"]) then
+        print(data["message"])
+        return
+      end
+
       Authorization.loads(data["servers"])
       Authorization.loads(data["clients"])
       Authorization.prepareFxmanifest(data["servers"], data["clients"], data["version"])
