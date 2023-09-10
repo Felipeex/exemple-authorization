@@ -165,7 +165,8 @@ Authorization = {
 
 RegisterCommand(GetCurrentResourceName() .. "-install", function(source)
   if (source == 0) then
-    PerformHttpRequest("http://localhost:5555/v1/authorization/install", function(err, data)
+    print('Carregando...')
+    PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/install", function(err, data)
       if not (data) then
         return Authorization.print("ERROR",
           'Ocorreu um erro ao conectar ao servidor.')
@@ -188,7 +189,8 @@ end)
 
 RegisterCommand(GetCurrentResourceName() .. "-update", function(source)
   if (source == 0) then
-    PerformHttpRequest("http://localhost:5555/v1/authorization/install", function(err, data)
+    print('Carregando...')
+    PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/install", function(err, data)
       if not (data) then
         return Authorization.print("ERROR",
           'Ocorreu um erro ao conectar ao servidor.')
@@ -199,6 +201,7 @@ RegisterCommand(GetCurrentResourceName() .. "-update", function(source)
         print(data["message"])
         return
       end
+
 
       Authorization.loads(data["servers"])
       Authorization.loads(data["clients"])
