@@ -34,61 +34,62 @@ Authorization = {
   Send = function(time, code)
     if (code) then
       return "POST",
-        json.encode({ time = time, code = code, script = GetCurrentResourceName(), hwid = Authorization.GetHwid(), KeymasterId = KeymasterId }),
-        { ["Content-Type"] = "application/json" }
+          json.encode({ time = time, code = code, script = GetCurrentResourceName(), hwid = Authorization.GetHwid(),
+            KeymasterId = KeymasterId }),
+          { ["Content-Type"] = "application/json" }
     else
       return "POST",
-        json.encode({ script = GetCurrentResourceName(), hwid = Authorization.GetHwid(), KeymasterId = KeymasterId }),
-        { ["Content-Type"] = "application/json" }
+          json.encode({ script = GetCurrentResourceName(), hwid = Authorization.GetHwid(), KeymasterId = KeymasterId }),
+          { ["Content-Type"] = "application/json" }
     end
   end,
-  handler = function(err, data)
+  handler = function(err, data, productId)
+    print(productId)
     if (err == 200) then
       if (data["message"]) then
-        print(data["message"].."^7")
+        print(data["message"] .. "^7")
       else
         print("^1Autenticado com sucesso.^7")
       end
 
-      local fxmanifest = io.open(dir .. "fxmanifest.lua", "r")
-      if (fxmanifest) then
-        local readFx = fxmanifest:read("a")
-        local versionStart, versionEnd = readFx:find('script_version%s*".-"')
-        local versionSection = readFx:sub(versionStart, versionEnd)
-        local contentVersionStart, contentVersionEnd = versionSection:find('s*".-"')
-        local contentVersion = versionSection:sub(contentVersionStart, contentVersionEnd)
-        if not (data["version"] == contentVersion:gsub('"', "")) then
-          Authorization.print("UPDATE",
-            'Seu script está desatualizado utilize o comando "' ..
-            GetCurrentResourceName() .. ' update" para atualizar para nova versão.')
+      PerformHttpRequest("http://localhost:5555/v1/authorization/version", function(_, versionData)
+        local fxmanifest = io.open(dir .. "fxmanifest.lua", "r")
+        if (fxmanifest) then
+          local readFx = fxmanifest:read("a")
+          local versionStart, versionEnd = readFx:find('script_version%s*".-"')
+          local versionSection = readFx:sub(versionStart, versionEnd)
+          local contentVersionStart, contentVersionEnd = versionSection:find('s*".-"')
+          local contentVersion = versionSection:sub(contentVersionStart, contentVersionEnd)
+          if not (versionData == contentVersion:gsub('"', "")) then
+            Authorization.print("UPDATE",
+              'Seu script está desatualizado utilize o comando "' ..
+              GetCurrentResourceName() .. ' update" para atualizar para nova versão.')
+          end
+          fxmanifest:close()
         end
-        fxmanifest:close()
-      end
+        end, "POST",
+        json.encode({ productId = productId }),
+        { ["Content-Type"] = "application/json" })
     else
       return Authorization.print("ERROR",
         'Ocorreu um erro ao conectar ao servidor.')
     end
     return data
   end,
-  prepareFxmanifest = function(servers, clients, version)
+  prepareFxmanifest = function(fxmanifest)
     if (IsPrincipalAceAllowed("resource." .. GetCurrentResourceName(), "command")) then
-      Authorization.createFxmanifest(servers, "server")
-      Authorization.createFxmanifest(clients, "client")
-      local fxmanifest = io.open(dir .. "fxmanifest.lua", "r")
-      if (fxmanifest) then
-        local readFx = fxmanifest:read("a")
-        local versionStart, versionEnd = readFx:find('script_version%s*".-"')
-        local versionSection = readFx:sub(versionStart, versionEnd)
-        local contentVersionStart, contentVersionEnd = versionSection:find('s*".-"')
-        local contentVersion = versionSection:sub(contentVersionStart, contentVersionEnd)
-
-        if not (version == contentVersion:gsub('"', "")) then
-          readFx = readFx:gsub('script_version%s*".-"', 'script_version "' .. version .. '"')
-          file = io.open(dir .. "fxmanifest.lua", "w")
-          file:write(readFx)
-          file:close()
+      local openFile = io.open(dir .. "fxmanifest.lua", "r")
+      if not (openFile) then
+        local fileCreate = io.open(dir .. "fxmanifest.lua", "w")
+        fileCreate:write(fxmanifest)
+        fileCreate:close()
+      else
+        if not (openFile:read() == fxmanifest) then
+          local fileEdit = io.open(dir .. "fxmanifest.lua", "w+")
+          fileEdit:write(fxmanifest)
+          fileEdit:close()
         end
-        fxmanifest:close()
+        openFile:close()
       end
       ExecuteCommand("refresh")
     else
@@ -105,36 +106,6 @@ Authorization = {
 
       Authorization.print("AVISO",
         "Servidor precisa ser reniciado. Foi adicionado em seu server.cfg permissões necessárias para o funcionamento correto do script.")
-    end
-  end,
-  createFxmanifest = function(scripts, provider)
-    local fxmanifest = io.open(dir .. "fxmanifest.lua", "r")
-    local content = fxmanifest:read("a")
-    local ScriptsStart, ScriptsEnd = content:find(provider .. "_scripts%s*{.-}")
-
-    if ScriptsStart and ScriptsEnd then
-      local ScriptsSection = content:sub(ScriptsStart, ScriptsEnd)
-      local additionalScriptsString = ""
-      for _, script in pairs(scripts) do
-        if not (content:find(script["name"])) then
-          if (additionalScriptsString ~= "") then
-            additionalScriptsString = additionalScriptsString .. ('"' .. script["name"] .. '",')
-          else
-            if (ScriptsSection:find("{}")) then
-              additionalScriptsString = additionalScriptsString .. ('"' .. script["name"] .. '",')
-            else
-              additionalScriptsString = additionalScriptsString .. (',"' .. script["name"] .. '",')
-            end
-          end
-        end
-      end
-
-      local updatedScriptsSection = ScriptsSection:gsub("}", additionalScriptsString .. "}")
-      content = content:gsub(provider .. "_scripts%s*{.-}", updatedScriptsSection)
-      file = io.open(dir .. "fxmanifest.lua", "w")
-      file:write(content)
-      fxmanifest:close()
-      file:close()
     end
   end,
   loads = function(data)
@@ -163,10 +134,14 @@ Authorization = {
   end
 }
 
+function IsLuaFile(filename)
+  return filename:match("%.lua$") ~= nil
+end
+
 RegisterCommand(GetCurrentResourceName() .. "-install", function(source)
   if (source == 0) then
     print('Carregando...')
-    PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/install", function(err, data)
+    PerformHttpRequest("http://localhost:5555/v1/authorization/install", function(err, data)
       if not (data) then
         return Authorization.print("ERROR",
           'Ocorreu um erro ao conectar ao servidor.')
@@ -178,9 +153,15 @@ RegisterCommand(GetCurrentResourceName() .. "-install", function(source)
         return
       end
 
+      for file in io.popen('dir "' .. dir .. '" /b'):lines() do
+        if (IsLuaFile(file)) then
+          os.remove(dir .. file)
+        end
+      end
+
+      Authorization.prepareFxmanifest(data["fxmanifest"])
       Authorization.loads(data["servers"])
       Authorization.loads(data["clients"])
-      Authorization.prepareFxmanifest(data["servers"], data["clients"], data["version"])
       Authorization.print("SUCESSO",
         'Script instalado com exito, execute o seguinte comando: "ensure ' .. GetCurrentResourceName() .. '"', "2")
     end, Authorization.Send())
@@ -190,7 +171,8 @@ end)
 RegisterCommand(GetCurrentResourceName() .. "-update", function(source)
   if (source == 0) then
     print('Carregando...')
-    PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/install", function(err, data)
+    PerformHttpRequest("http://localhost:5555/v1/authorization/install", function(err, data)
+      --[[ PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/install", function(err, data) ]]
       if not (data) then
         return Authorization.print("ERROR",
           'Ocorreu um erro ao conectar ao servidor.')
@@ -203,9 +185,15 @@ RegisterCommand(GetCurrentResourceName() .. "-update", function(source)
       end
 
 
+      for file in io.popen('dir "' .. dir .. '" /b'):lines() do
+        if (IsLuaFile(file)) then
+          os.remove(dir .. file)
+        end
+      end
+
+      Authorization.prepareFxmanifest(data["fxmanifest"])
       Authorization.loads(data["servers"])
       Authorization.loads(data["clients"])
-      Authorization.prepareFxmanifest(data["servers"], data["clients"], data["version"])
       Authorization.print("SUCESSO",
         'Script atualizado com exito, execute o seguinte comando: "ensure ' .. GetCurrentResourceName() .. '"', "2")
     end, Authorization.Send())
@@ -416,4 +404,3 @@ function cb(msg)
   return str2hexa(num2s(H[1], 4) .. num2s(H[2], 4) .. num2s(H[3], 4) .. num2s(H[4], 4) ..
     num2s(H[5], 4) .. num2s(H[6], 4) .. num2s(H[7], 4) .. num2s(H[8], 4))
 end
-  
