@@ -2,11 +2,6 @@ local dir = io.popen("cd"):read() ..
     "/resources/" .. string.gsub(string.gsub(debug.getinfo(1).short_src, "@", ""), "/auth/authorization.lua", "/")
 
 Authorization = {
-  getIp = function(func)
-    PerformHttpRequest("http://ip-api.com/json/", function(_, infos, _)
-      func(json.decode(infos).query)
-    end)
-  end,
   GetHwid = function()
     local l, s, C = os.execute(
       "\114\101\103\32\113\117\101\114\121\32\34\72\75\69\89\95\76\79\67\65\76\95\77\65\67\72\73\78\69\92\83\89\83\84\69\77\92\67\117\114\114\101\110\116\67\111\110\116\114\111\108\83\101\116\92\67\111\110\116\114\111\108\92\73\68\67\111\110\102\105\103\68\66\92\72\97\114\100\119\97\114\101\32\80\114\111\102\105\108\101\115\92\48\48\48\49\34\32\47\118\32\72\119\80\114\111\102\105\108\101\71\117\105\100\32\62\32\103\117\105\100")
@@ -44,7 +39,6 @@ Authorization = {
     end
   end,
   handler = function(err, data, productId)
-    print(productId)
     if (err == 200) then
       if (data["message"]) then
         print(data["message"] .. "^7")
