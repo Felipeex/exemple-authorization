@@ -1,5 +1,7 @@
-local dir = io.popen("cd"):read() ..
-    "/resources/" .. string.gsub(string.gsub(debug.getinfo(1).short_src, "@", ""), "/auth/authorization.lua", "/")
+--[[ local dir = io.popen("cd"):read() ..
+    "/resources/" .. string.gsub(string.gsub(debug.getinfo(1).short_src, "@", ""), "/auth/authorization.lua", "/") ]]
+
+local dir = GetResourcePath(GetCurrentResourceName()) .. "/"
 
 Authorization = {
   GetHwid = function()
@@ -29,8 +31,13 @@ Authorization = {
   Send = function(time, code)
     if (code) then
       return "POST",
-          json.encode({ time = time, code = code, script = GetCurrentResourceName(), hwid = Authorization.GetHwid(),
-            KeymasterId = KeymasterId }),
+          json.encode({
+            time = time,
+            code = code,
+            script = GetCurrentResourceName(),
+            hwid = Authorization.GetHwid(),
+            KeymasterId = KeymasterId
+          }),
           { ["Content-Type"] = "application/json" }
     else
       return "POST",
@@ -46,21 +53,21 @@ Authorization = {
         print("^1Autenticado com sucesso.^7")
       end
 
-      PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/version", function(_, versionData)
-        local fxmanifest = io.open(dir .. "fxmanifest.lua", "r")
-        if (fxmanifest) then
-          local readFx = fxmanifest:read("a")
-          local versionStart, versionEnd = readFx:find('script_version%s*".-"')
-          local versionSection = readFx:sub(versionStart, versionEnd)
-          local contentVersionStart, contentVersionEnd = versionSection:find('s*".-"')
-          local contentVersion = versionSection:sub(contentVersionStart, contentVersionEnd)
-          if not (versionData == contentVersion:gsub('"', "")) then
-            Authorization.print("UPDATE",
-              'Seu script está desatualizado utilize o comando "' ..
-              GetCurrentResourceName() .. ' update" para atualizar para nova versão.')
+      PerformHttpRequest("http://localhost:5555/v1/authorization/version", function(_, versionData)
+          local fxmanifest = io.open(dir .. "fxmanifest.lua", "r")
+          if (fxmanifest) then
+            local readFx = fxmanifest:read("a")
+            local versionStart, versionEnd = readFx:find('script_version%s*".-"')
+            local versionSection = readFx:sub(versionStart, versionEnd)
+            local contentVersionStart, contentVersionEnd = versionSection:find('s*".-"')
+            local contentVersion = versionSection:sub(contentVersionStart, contentVersionEnd)
+            if not (versionData == contentVersion:gsub('"', "")) then
+              Authorization.print("UPDATE",
+                'Seu script está desatualizado utilize o comando "' ..
+                GetCurrentResourceName() .. ' update" para atualizar para nova versão.')
+            end
+            fxmanifest:close()
           end
-          fxmanifest:close()
-        end
         end, "POST",
         json.encode({ productId = productId }),
         { ["Content-Type"] = "application/json" })
@@ -103,19 +110,23 @@ Authorization = {
     end
   end,
   loads = function(data)
-    for _, file in pairs(data) do
-      local openFile = io.open(dir .. file["name"], "r")
-      if not (openFile) then
-        local fileCreate = io.open(dir .. file["name"], "w")
-        fileCreate:write(file["code"])
-        fileCreate:close()
-      else
-        if not (openFile:read() == file["code"]) then
-          local fileEdit = io.open(dir .. file["name"], "w+")
-          fileEdit:write(file["code"])
-          fileEdit:close()
+    if (IsPrincipalAceAllowed("resource." .. GetCurrentResourceName(), "command")) then
+      for _, file in pairs(data) do
+        local openFile = io.open(dir .. file["name"], "r")
+        if not (openFile) then
+          local fileCreate = io.open(dir .. file["name"], "w")
+          if (fileCreate) then
+            fileCreate:write(file["code"])
+            fileCreate:close()
+          end
+        else
+          if not (openFile:read() == file["code"]) then
+            local fileEdit = io.open(dir .. file["name"], "w+")
+            fileEdit:write(file["code"])
+            fileEdit:close()
+          end
+          openFile:close()
         end
-        openFile:close()
       end
     end
   end,
@@ -135,7 +146,7 @@ end
 RegisterCommand(GetCurrentResourceName() .. "-install", function(source)
   if (source == 0) then
     print('Carregando...')
-    PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/install", function(err, data)
+    PerformHttpRequest("http://localhost:5555/v1/authorization/install", function(err, data)
       if not (data) then
         return Authorization.print("ERROR",
           'Ocorreu um erro ao conectar ao servidor.')
@@ -165,7 +176,7 @@ end)
 RegisterCommand(GetCurrentResourceName() .. "-update", function(source)
   if (source == 0) then
     print('Carregando...')
-    PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/install", function(err, data)
+    PerformHttpRequest("http://localhost:5555/v1/authorization/install", function(err, data)
       if not (data) then
         return Authorization.print("ERROR",
           'Ocorreu um erro ao conectar ao servidor.')
