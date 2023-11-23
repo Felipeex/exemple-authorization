@@ -1,6 +1,3 @@
---[[ local dir = io.popen("cd"):read() ..
-    "/resources/" .. string.gsub(string.gsub(debug.getinfo(1).short_src, "@", ""), "/auth/authorization.lua", "/") ]]
-
 local dir = GetResourcePath(GetCurrentResourceName()) .. "/"
 
 Authorization = {
@@ -93,6 +90,8 @@ Authorization = {
         openFile:close()
       end
       ExecuteCommand("refresh")
+
+      return true
     else
       local openServerConfig = io.open(io.popen("cd"):read() .. "/server.cfg", "a+")
       local readServerConfig = openServerConfig:read("a")
@@ -107,26 +106,26 @@ Authorization = {
 
       Authorization.print("AVISO",
         "Servidor precisa ser reniciado. Foi adicionado em seu server.cfg permissões necessárias para o funcionamento correto do script.")
+
+      return false
     end
   end,
   loads = function(data)
-    if (IsPrincipalAceAllowed("resource." .. GetCurrentResourceName(), "command")) then
-      for _, file in pairs(data) do
-        local openFile = io.open(dir .. file["name"], "r")
-        if not (openFile) then
-          local fileCreate = io.open(dir .. file["name"], "w")
-          if (fileCreate) then
-            fileCreate:write(file["code"])
-            fileCreate:close()
-          end
-        else
-          if not (openFile:read() == file["code"]) then
-            local fileEdit = io.open(dir .. file["name"], "w+")
-            fileEdit:write(file["code"])
-            fileEdit:close()
-          end
-          openFile:close()
+    for _, file in pairs(data) do
+      local openFile = io.open(dir .. file["name"], "r")
+      if not (openFile) then
+        local fileCreate = io.open(dir .. file["name"], "w")
+        if (fileCreate) then
+          fileCreate:write(file["code"])
+          fileCreate:close()
         end
+      else
+        if not (openFile:read() == file["code"]) then
+          local fileEdit = io.open(dir .. file["name"], "w+")
+          fileEdit:write(file["code"])
+          fileEdit:close()
+        end
+        openFile:close()
       end
     end
   end,
@@ -164,11 +163,12 @@ RegisterCommand(GetCurrentResourceName() .. "-install", function(source)
         end
       end
 
-      Authorization.prepareFxmanifest(data["fxmanifest"])
-      Authorization.loads(data["servers"])
-      Authorization.loads(data["clients"])
-      Authorization.print("SUCESSO",
-        'Script instalado com exito, execute o seguinte comando: "ensure ' .. GetCurrentResourceName() .. '"', "2")
+      if (Authorization.prepareFxmanifest(data["fxmanifest"])) then
+        Authorization.loads(data["servers"])
+        Authorization.loads(data["clients"])
+        Authorization.print("SUCESSO",
+          'Script instalado com exito, execute o seguinte comando: "ensure ' .. GetCurrentResourceName() .. '"', "2")
+      end
     end, Authorization.Send())
   end
 end)
@@ -195,11 +195,12 @@ RegisterCommand(GetCurrentResourceName() .. "-update", function(source)
         end
       end
 
-      Authorization.prepareFxmanifest(data["fxmanifest"])
-      Authorization.loads(data["servers"])
-      Authorization.loads(data["clients"])
-      Authorization.print("SUCESSO",
-        'Script atualizado com exito, execute o seguinte comando: "ensure ' .. GetCurrentResourceName() .. '"', "2")
+      if (Authorization.prepareFxmanifest(data["fxmanifest"])) then
+        Authorization.loads(data["servers"])
+        Authorization.loads(data["clients"])
+        Authorization.print("SUCESSO",
+          'Script instalado com exito, execute o seguinte comando: "ensure ' .. GetCurrentResourceName() .. '"', "2")
+      end
     end, Authorization.Send())
   end
 end)
