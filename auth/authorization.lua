@@ -50,7 +50,7 @@ Authorization = {
         print("^1Autenticado com sucesso.^7")
       end
 
-      PerformHttpRequest("http://localhost:5555/v1/authorization/version", function(_, versionData)
+      PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/version", function(_, versionData)
           local fxmanifest = io.open(dir .. "fxmanifest.lua", "r")
           if (fxmanifest) then
             local readFx = fxmanifest:read("a")
@@ -145,7 +145,7 @@ end
 RegisterCommand(GetCurrentResourceName() .. "-install", function(source)
   if (source == 0) then
     print('Carregando...')
-    PerformHttpRequest("http://localhost:5555/v1/authorization/install", function(err, data)
+    PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/install", function(err, data)
       if not (data) then
         return Authorization.print("ERROR",
           'Ocorreu um erro ao conectar ao servidor.')
@@ -176,7 +176,7 @@ end)
 RegisterCommand(GetCurrentResourceName() .. "-update", function(source)
   if (source == 0) then
     print('Carregando...')
-    PerformHttpRequest("http://localhost:5555/v1/authorization/install", function(err, data)
+    PerformHttpRequest("https://api.fivemshop.com.br/auth/v1/authorization/install", function(err, data)
       if not (data) then
         return Authorization.print("ERROR",
           'Ocorreu um erro ao conectar ao servidor.')
